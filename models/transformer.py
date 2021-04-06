@@ -1,12 +1,78 @@
 import copy
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.functional as F
 
 
+class ScaledDotProductAttention(nn.Module):
+    def __init__(self, d_k, attn_pdrop):
+        super().__init__()
+        self.d_k = d_k
+
+        self.dropout = nn.Dropout(attn_pdrop)
+
+    def forward(self, q, k, v, attn_mask):
+        # |q| : (batch_size, n_heads, q_len, d_k)
+        # |k| : (batch_size, n_heads, k_len, d_k)
+        # |v| : (batch_size, n_heads, v_len, d_v)
+        # |attn_mask| : (batch_size, n_heads, q_len, k_len)
+
+        attn_score = torch.matmul(q, k.transpose(-1, -2)) / (self.d_k ** 0.5)
+        attn_score.masked_fill_(attn_mask, -1e9)
+        # |attn_scroe| : (batch_size, n_heads, q_len, k_len)
+
+        attn_weights = nn.Softmax(dim=-1)(attn_score)
+        attn_weights = self.dropout(attn_weights)
+        # |attn_weights| : (batch_size, n_heads, q_len, k_len)
+
+        output = torch.matmul(attn_weights, v)
+        # |output| : (batch_size, n_heads, q_len, d_v)
+
+        return output, attn_weights
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model, n_heads, attn_pdrop):
+        super().__init__()
+        self.n_heads = n_heads
+        self.d_k = self.d_v = d_model // n_heads
+
+        self.WQ = nn.Linear(d_model, d_model)
+        self.WK = nn.Linear(d_model, d_model)
+        self.WV = nn.Linear(d_model, d_model)
+        self.scaled_dot_product_attn = ScaledDotProductAttention(self.d_k, attn_pdrop)
+        self.linear = nn.Linear(n_heads * self.d_v, d_model)
+
+    def forward(self, Q, K, V, attn_mask):
+        # |Q| : (batch_size, q_len(=seq_len), d_model)
+        # |K| : (batch_size, k_len(=seq_len), d_model)
+        # |V| : (batch_size, v_len(=seq_len), d_model)
+        # |attn_mask| : (batch_size, q_len, k_len)
+        batch_size = Q.size(0)
+
+        q_heads = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        k_heads = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        v_heads = self.WV(V).view(batch_size, -1, self.n_heads, self.d_v).transpose(1, 2)
+        # |q_heads| : (batch_size, n_heads, q_len, d_k), |k_heads| : (batch_size, n_heads, k_len, d_k), |v_heads| : (batch_size, n_heads, v_len, d_v)
+
+        attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
+        # |attn_mask| : (batch_size, n_heads, q_len, k_len)
+        attn, attn_weights = self.scaled_dot_product_attn(q_heads, k_heads, v_heads, attn_mask)
+        # |attn| : (batch_size, n_heads, q_len, d_v)
+        # |attn_weights| : (batch_size, n_heads, q_len, k_len)
+
+        attn = attn.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
+        # |attn| : (batch_size, q_len, n_heads * d_v)
+        outputs = self.linear(attn)
+        # |outputs| : (batch_size, q_len, d_model)
+
+        return outputs, attn_weights
+
+
 class PositionWiseFeedForwardNetwork(nn.Module):
     def __init__(self, d_model, d_ff):
-        super(PositionWiseFeedForwardNetwork, self).__init__()
+        super().__init__()
 
         self.linear1 = nn.Linear(d_model, d_ff)
         self.linear2 = nn.Linear(d_ff, d_model)
@@ -28,9 +94,10 @@ class PositionWiseFeedForwardNetwork(nn.Module):
 
 class DecoderLayer(nn.Module):
     def __init__(self, d_model, n_heads, d_ff, attn_pdrop, resid_pdrop):
-        super(DecoderLayer, self).__init__()
+        super().__init__()
+        self.n_heads = n_heads
 
-        self.mha = nn.MultiheadAttention(d_model, n_heads, dropout=attn_pdrop)
+        self.mha = MultiHeadAttention(d_model, n_heads, attn_pdrop)
         self.dropout1 = nn.Dropout(resid_pdrop)
         self.layernorm1 = nn.LayerNorm(d_model, eps=1e-5)
 
@@ -59,7 +126,7 @@ class DecoderLayer(nn.Module):
 class TransformerDecoder(nn.Module):
     def __init__(self, vocab_size, seq_len, d_model, n_layers, n_heads, d_ff, embd_pdrop, attn_pdrop, resid_pdrop,
                  pad_id):
-        super(TransformerDecoder, self).__init__()
+        super().__init__()
         self.pad_id = pad_id
 
         # layers
@@ -129,8 +196,7 @@ class GPT(nn.Module):
         return outputs, attention_weights
 
 
-# FIXME: implement as final model with pytorch-lightning
-class LM(nn.Module):
+class LMModel(pl.LightningModule):
     def __init__(self, gpt):
         super().__init__()
         vocab_size, d_model = gpt.decoder.embedding.weight.size()
@@ -151,15 +217,38 @@ class LM(nn.Module):
 
         return lm_logits
 
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        return optimizer
 
-def _get_clones(module, N):
-    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
+    def training_step(self, batch, batch_idx):
+        X, y = batch['inputs_ids'], batch['labels']
+        lm_logits = self.forward(X)
+        shift_logits = lm_logits[..., :-1, :].contiguous()
+        shift_labels = y[..., 1:].contiguous()
 
+        # Flatten the tokens
+        loss_fct = nn.CrossEntropyLoss()
+        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
 
-def _get_activation_fn(activation):
-    if activation == "relu":
-        return F.relu
-    elif activation == "gelu":
-        return F.gelu
+        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
 
-    raise RuntimeError("activation should be relu/gelu, not {}".format(activation))
+    def validation_step(self, batch, batch_idx):
+        X, y = batch['inputs_ids'], batch['labels']
+        lm_logits = self.forward(X)
+        shift_logits = lm_logits[..., :-1, :].contiguous()
+        shift_labels = y[..., 1:].contiguous()
+
+        # Flatten the tokens
+        loss_fct = nn.CrossEntropyLoss()
+        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+
+        self.log('val_loss', loss, on_step=True, sync_dist=True)
+        return {'val_loss': loss}
+
+    def validation_epoch_end(self, outputs):
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        perplexity = torch.exp(avg_loss)
+
+        self.log('val_loss', avg_loss)
+        self.log('perplexity', perplexity)
