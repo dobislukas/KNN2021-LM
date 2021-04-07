@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 
 import pytorch_lightning as pl
 import torch
@@ -7,9 +7,7 @@ from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import Whitespace
 from tokenizers.tokenizers import Tokenizer
 from tokenizers.trainers import BpeTrainer
-from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
-from transformers import DataCollatorForLanguageModeling
 
 
 class WikiText2DataModule(pl.LightningDataModule):
@@ -51,7 +49,8 @@ class WikiText2DataModule(pl.LightningDataModule):
         self.tokenized_dataset = dataset.map(
             tokenize_function,
             batched=True,
-            remove_columns=column_names
+            remove_columns=column_names,
+            num_proc=4
         )
 
     def setup(self, stage: Optional[str] = None):
@@ -78,12 +77,14 @@ class WikiText2DataModule(pl.LightningDataModule):
         lm_dataset = self.tokenized_dataset.map(
             group_text,
             batched=True,
+            num_proc=4
         )
 
         train_dataset = lm_dataset['train']
         eval_dataset = lm_dataset['validation']
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
+        self.test_dataset = lm_dataset['test']
 
     def collate_fn(self, features):
         batch = {}
@@ -96,7 +97,7 @@ class WikiText2DataModule(pl.LightningDataModule):
             self.train_dataset,
             batch_size=self.train_batch_size,
             collate_fn=self.collate_fn,
-            num_workers=self.dataloader_num_workers
+            # num_workers=self.dataloader_num_workers
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -104,5 +105,13 @@ class WikiText2DataModule(pl.LightningDataModule):
             self.eval_dataset,
             batch_size=self.val_batch_size,
             collate_fn=self.collate_fn,
-            num_workers=self.dataloader_num_workers
+            # num_workers=self.dataloader_num_workers
+        )
+
+    def test_dataloader(self) -> DataLoader:
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.val_batch_size,
+            collate_fn=self.collate_fn,
+            # num_workers=self.dataloader_num_workers
         )

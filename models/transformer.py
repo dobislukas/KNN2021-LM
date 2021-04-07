@@ -218,7 +218,7 @@ class LMModel(pl.LightningModule):
         return lm_logits
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.5)
         return optimizer
 
     def training_step(self, batch, batch_idx):
@@ -230,7 +230,9 @@ class LMModel(pl.LightningModule):
         # Flatten the tokens
         loss_fct = nn.CrossEntropyLoss()
         loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        perplexity = torch.exp(loss)
 
+        self.log('train_perplexity', perplexity, on_step=True, on_epoch=True, prog_bar=True)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
 
     def validation_step(self, batch, batch_idx):
@@ -242,7 +244,9 @@ class LMModel(pl.LightningModule):
         # Flatten the tokens
         loss_fct = nn.CrossEntropyLoss()
         loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        perplexity = torch.exp(loss)
 
+        self.log('val_perplexity', perplexity, on_step=True)
         self.log('val_loss', loss, on_step=True, sync_dist=True)
         return {'val_loss': loss}
 
