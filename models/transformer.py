@@ -218,7 +218,7 @@ class LMModel(pl.LightningModule):
         return lm_logits
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=0.5)
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
         return optimizer
 
     def training_step(self, batch, batch_idx):
@@ -234,6 +234,7 @@ class LMModel(pl.LightningModule):
 
         self.log('train_perplexity', perplexity, on_step=True, on_epoch=True, prog_bar=True)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        return loss
 
     def validation_step(self, batch, batch_idx):
         X, y = batch['inputs_ids'], batch['labels']
