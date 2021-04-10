@@ -26,7 +26,7 @@ def main():
     data_module = WikiText2DataModule(
         train_batch_size=64,
         val_batch_size=64,
-        seq_length=1024
+        seq_length=64
     )
     data_module.prepare_data()
 
@@ -36,11 +36,11 @@ def main():
     model = LMModel(
         GPT(
             vocab_size=data_module.tokenizer.get_vocab_size(),
-            seq_len=1024,
+            seq_len=64,
             d_model=384,
-            n_layers=4,
-            n_heads=6,
-            d_ff=1024
+            n_layers=2,
+            n_heads=4,
+            d_ff=512
         )
     )
 
@@ -51,12 +51,12 @@ def main():
     early_stop_callback = EarlyStopping(
         monitor='perplexity',
         min_delta=0.00,
-        patience=3,
+        patience=5,
         verbose=False,
         mode='min'
     )
 
-    trainer = pl.Trainer(callbacks=[checkpoint_callback], gpus=1, val_check_interval=250)
+    trainer = pl.Trainer(callbacks=[checkpoint_callback], gpus=1, max_epochs=8, val_check_interval=500)
     trainer.fit(model=model, datamodule=data_module)
 
 
