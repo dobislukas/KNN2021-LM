@@ -8,25 +8,26 @@ from tokenizers.tokenizers import Tokenizer
 
 def main():
     
-    #sample_input = "Julius Caesar was asssasinated by"
-    sample_input = "Man is "
+    sample_input = "In 1691 Moscow established a customs-post at Tsaritsyn. In 1708 Tsaritsyn was assigned to the Kazan Governorate; in 1719 to the Astrakhan Governorate. According to the census in 1720, the city had a population of 408 people. In 1773 the settlement was designated as a provincial and district"
+    #sample_input = "Contempt is a pattern of attitudes and behaviour, often towards an individual or group, but sometimes towards an ideology, which has the characteristics of disgust and anger. The word originated in 1393, from the Latin word contemptus meaning \"scorn\". It is the past participle of contemnere and from com- intensive prefix + temnere \"to slight, scorn\". Contemptuous appeared in 1529. It is classified among Paul Ekman seven basic emotions of contempt"
     
     # Paths to tokenizer and model
-    tokenizer_path = "data/tokenizer-wiki_version12_bac.json"    
-    best_model_path = "lightning_logs/version_12/checkpoints/epoch=7-step=217777.ckpt"
+    tokenizer_path = "data/tokenizer-wiki.json"    
+
+    best_model_path = "lightning_logs/version_50/checkpoints/epoch=4-step=115015.ckpt"
     
     # Iitialize tokenizer and model from files
     tokenizer = Tokenizer(BPE(unk_token="[UNK]"))
     tokenizer.pre_tokenizer = Whitespace()
     
-    tokenizer = tokenizer.from_file(tokenizer_path)
+    tokenizer = Tokenizer.from_file(tokenizer_path)
     gpt_model = GPT(
                 vocab_size=tokenizer.get_vocab_size(),
-                seq_len=64,
-                d_model=384,
-                n_layers=2,
-                n_heads=4,
-                d_ff=512
+                seq_len= 64,
+                d_model= 768, #384,
+                n_layers= 6,#2,
+                n_heads= 8,#4,
+                d_ff= 1024 
                )
     model = LMModel.load_from_checkpoint(checkpoint_path=best_model_path, gpt=gpt_model)
     

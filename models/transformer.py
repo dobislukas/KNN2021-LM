@@ -1,3 +1,4 @@
+import math
 import copy
 import pytorch_lightning as pl
 import torch
@@ -128,11 +129,14 @@ class TransformerDecoder(nn.Module):
                  pad_id):
         super().__init__()
         self.pad_id = pad_id
-
+        self.d_model = d_model
+        
         # layers
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.dropout = nn.Dropout(embd_pdrop)
-        self.pos_embedding = nn.Embedding(seq_len + 1, d_model)
+        #self.pos_embedding = nn.Embedding(seq_len + 1, d_model)
+        self.pos_embedding = PositionalEncoding(d_model, embd_pdrop)
+        
         self.layers = nn.ModuleList(
             [DecoderLayer(d_model, n_heads, d_ff, attn_pdrop, resid_pdrop) for _ in range(n_layers)])
 
@@ -144,8 +148,10 @@ class TransformerDecoder(nn.Module):
         position_pad_mask = inputs.eq(self.pad_id)
         positions.masked_fill_(position_pad_mask, 0)
         # |positions| : (batch_size, seq_len)
-
-        outputs = self.dropout(self.embedding(inputs)) + self.pos_embedding(positions)
+        
+        outputs = self.embedding(inputs)
+        outputs *= torch.sqrt(torch.tensor(self.d_model,dtype=torch.float32))
+        outputs = self.pos_embedding(outputs)
         # |outputs| : (batch_size, seq_len, d_model)
 
         attn_pad_mask = self.get_attention_padding_mask(inputs, inputs, self.pad_id)
@@ -218,8 +224,10 @@ class LMModel(pl.LightningModule):
         return lm_logits
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
-        return optimizer
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.0001)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.2, patience=0, threshold=8, cooldown=2)
+        
+        return  {'optimizer': optimizer, 'lr_scheduler': scheduler,  "monitor": 'perplexity'}
 
     def training_step(self, batch, batch_idx):
         X, y = batch['inputs_ids'], batch['labels']
@@ -230,6 +238,7 @@ class LMModel(pl.LightningModule):
         # Flatten the tokens
         loss_fct = nn.CrossEntropyLoss()
         loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        #loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), y.view(-1))
         perplexity = torch.exp(loss)
 
         self.log('train_perplexity', perplexity, on_step=True, on_epoch=True, prog_bar=True)
@@ -245,6 +254,7 @@ class LMModel(pl.LightningModule):
         # Flatten the tokens
         loss_fct = nn.CrossEntropyLoss()
         loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        #loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), y.view(-1))
         perplexity = torch.exp(loss)
 
         self.log('val_perplexity', perplexity, on_step=True)
@@ -257,3 +267,25 @@ class LMModel(pl.LightningModule):
 
         self.log('val_loss', avg_loss)
         self.log('perplexity', perplexity)
+        
+class PositionalEncoding(nn.Module):
+
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)      
+
+#if __name__ == '__main__':
+#    test = PositionalEncoding(128,0.01)
+    

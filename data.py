@@ -2,6 +2,7 @@ from typing import Optional
 
 import pytorch_lightning as pl
 import torch
+import os
 from datasets import load_dataset
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import Whitespace
@@ -32,10 +33,14 @@ class WikiText2DataModule(pl.LightningDataModule):
             for i in range(0, len(dataset), batch_size):
                 yield dataset[i: i + batch_size]["text"]
 
-        trainer = BpeTrainer(special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"])
-        self.tokenizer.train_from_iterator(batch_iterator(), trainer=trainer, length=len(dataset))
-        self.tokenizer.save("data/tokenizer-wiki.json")
-
+        if not os.path.exists("data/tokenizer-wiki.json"):
+            trainer = BpeTrainer(special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"])
+            
+            self.tokenizer.train_from_iterator(batch_iterator(), trainer=trainer, length=len(dataset))
+            self.tokenizer.save("data/tokenizer-wiki.json")
+        else:
+            self.tokenizer = Tokenizer.from_file("data/tokenizer-wiki.json")
+		
         dataset = load_dataset(
             "wikitext", "wikitext-103-raw-v1"
         )
