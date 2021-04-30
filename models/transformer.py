@@ -94,11 +94,11 @@ class PositionWiseFeedForwardNetwork(nn.Module):
 
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, n_heads, d_ff, attn_pdrop, resid_pdrop):
+    def __init__(self, d_model, n_heads, d_ff, attn_pdrop, resid_pdrop, mha=MultiHeadAttention):
         super().__init__()
         self.n_heads = n_heads
 
-        self.mha = MultiHeadAttention(d_model, n_heads, attn_pdrop)
+        self.mha = mha(d_model, n_heads, attn_pdrop)
         self.dropout1 = nn.Dropout(resid_pdrop)
         self.layernorm1 = nn.LayerNorm(d_model, eps=1e-5)
 
@@ -126,7 +126,7 @@ class DecoderLayer(nn.Module):
 
 class TransformerDecoder(nn.Module):
     def __init__(self, vocab_size, seq_len, d_model, n_layers, n_heads, d_ff, embd_pdrop, attn_pdrop, resid_pdrop,
-                 pad_id):
+                 pad_id, mha=MultiHeadAttention):
         super().__init__()
         self.pad_id = pad_id
         self.d_model = d_model
@@ -138,7 +138,7 @@ class TransformerDecoder(nn.Module):
         self.pos_embedding = PositionalEncoding(d_model, embd_pdrop)
         
         self.layers = nn.ModuleList(
-            [DecoderLayer(d_model, n_heads, d_ff, attn_pdrop, resid_pdrop) for _ in range(n_layers)])
+            [DecoderLayer(d_model, n_heads, d_ff, attn_pdrop, resid_pdrop, mha=mha) for _ in range(n_layers)])
 
         nn.init.normal_(self.embedding.weight, std=0.02)
 
@@ -186,11 +186,11 @@ class TransformerDecoder(nn.Module):
 
 class GPT(nn.Module):
     def __init__(self, vocab_size, seq_len=512, d_model=768, n_layers=12, n_heads=12, d_ff=3072,
-                 embd_pdrop=0.1, attn_pdrop=0.1, resid_pdrop=0.1, pad_id=0):
+                 embd_pdrop=0.1, attn_pdrop=0.1, resid_pdrop=0.1, pad_id=0, mha=MultiHeadAttention):
         super().__init__()
 
         self.decoder = TransformerDecoder(vocab_size, seq_len, d_model, n_layers, n_heads, d_ff,
-                                          embd_pdrop, attn_pdrop, resid_pdrop, pad_id)
+                                          embd_pdrop, attn_pdrop, resid_pdrop, pad_id, mha=mha)
 
     def forward(self, inputs):
         # |inputs| : (batch_size, seq_len)
