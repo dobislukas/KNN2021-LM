@@ -34,12 +34,12 @@ class WikiText2DataModule(pl.LightningDataModule):
             for i in range(0, len(dataset), batch_size):
                 yield dataset[i: i + batch_size]["text"]
 
-        if not os.path.exists("data/wiki-vocab.json") and not os.path.exists("data/wiki-merges.json"):
-            print('here')
+        if (not os.path.exists("data/wiki-vocab.json")) or (not os.path.exists("data/wiki-merges.txt")):
+            print('TRAIN TOKENIZER')
             self.tokenizer.train_from_iterator(batch_iterator(), vocab_size=self.vocab_size)
             self.tokenizer.save_model("data/", "wiki")
         else:
-            self.tokenizer = ByteLevelBPETokenizer("data/wiki-vocab.json", "data/wiki-merges.json",
+            self.tokenizer = ByteLevelBPETokenizer("data/wiki-vocab.json", "data/wiki-merges.txt",
                                                    add_prefix_space=True)
 
         dataset = load_dataset(

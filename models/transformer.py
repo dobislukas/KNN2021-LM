@@ -250,7 +250,7 @@ class LMModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         X, y = batch['inputs_ids'], batch['labels']
-        lm_logits = self.forward(X)
+        lm_logits, _ = self.forward(X)
         shift_logits = lm_logits[..., :-1, :].contiguous()
         shift_labels = y[..., 1:].contiguous()
 
@@ -266,7 +266,7 @@ class LMModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         X, y = batch['inputs_ids'], batch['labels']
-        lm_logits = self.forward(X)
+        lm_logits, _ = self.forward(X)
         shift_logits = lm_logits[..., :-1, :].contiguous()
         shift_labels = y[..., 1:].contiguous()
 

@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 from data import WikiText2DataModule
-from models.transformer import LMModel, GPT
+from models.transformer import LMModel
 
 
 def main():
@@ -26,8 +26,8 @@ def main():
     data_module = WikiText2DataModule(
         train_batch_size=64,
         val_batch_size=64,
-        seq_length= 64,#64
-        
+        seq_length= 64,
+        vocab_size=15000
     )
     data_module.prepare_data()
 
@@ -35,14 +35,12 @@ def main():
     # model
     # ------------
     model = LMModel(
-        GPT(
-            vocab_size=data_module.tokenizer.get_vocab_size(),
-            seq_len= 64,
-            d_model= 768, #384,
-            n_layers= 6,#2,
-            n_heads= 8,#4,
-            d_ff= 1024 #128#512
-        )
+        vocab_size=data_module.tokenizer.get_vocab_size(),
+        d_model= 128,
+        n_layers= 2,
+        n_heads= 4,
+        d_ff= 512,
+        attention='performer'
     )
 
     # ------------
@@ -65,7 +63,7 @@ def main():
 	
     #trainer = pl.Trainer(resume_from_checkpoint="lightning_logs/version_44/checkpoints/epoch=8-step=247031.ckpt",gpus=1, max_epochs=100, val_check_interval=500)
 	
-    trainer = pl.Trainer(callbacks=[checkpoint_callback], gpus=1, max_epochs=24, val_check_interval=500)
+    trainer = pl.Trainer(callbacks=[checkpoint_callback], max_epochs=24, val_check_interval=500)
     trainer.fit(model=model, datamodule=data_module)
 
 
