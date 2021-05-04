@@ -125,7 +125,7 @@ class DecoderLayer(nn.Module):
 
 
 class TransformerDecoder(nn.Module):
-    def __init__(self, vocab_size, seq_len, d_model, n_layers, n_heads, d_ff, embd_pdrop, attn_pdrop, resid_pdrop,
+    def __init__(self, vocab_size, d_model, n_layers, n_heads, d_ff, embd_pdrop, attn_pdrop, resid_pdrop,
                  pad_id, mha=MultiHeadAttention):
         super().__init__()
         self.pad_id = pad_id
@@ -185,11 +185,11 @@ class TransformerDecoder(nn.Module):
 
 
 class GPT(nn.Module):
-    def __init__(self, vocab_size, seq_len=512, d_model=768, n_layers=12, n_heads=12, d_ff=3072,
+    def __init__(self, vocab_size, d_model=768, n_layers=12, n_heads=12, d_ff=3072,
                  embd_pdrop=0.1, attn_pdrop=0.1, resid_pdrop=0.1, pad_id=0, mha=MultiHeadAttention):
         super().__init__()
 
-        self.decoder = TransformerDecoder(vocab_size, seq_len, d_model, n_layers, n_heads, d_ff,
+        self.decoder = TransformerDecoder(vocab_size, d_model, n_layers, n_heads, d_ff,
                                           embd_pdrop, attn_pdrop, resid_pdrop, pad_id, mha=mha)
 
     def forward(self, inputs):
@@ -203,13 +203,30 @@ class GPT(nn.Module):
 
 
 class LMModel(pl.LightningModule):
-    def __init__(self, gpt):
+    def __init__(self, vocab_size, d_model=768, n_layers=12, n_heads=12, d_ff=3072,
+                 embd_pdrop=0.1, attn_pdrop=0.1, resid_pdrop=0.1, pad_id=0, attention='default'):
         super().__init__()
-        vocab_size, d_model = gpt.decoder.embedding.weight.size()
+        
+        self.save_hyperparameters()
 
-        self.gpt = gpt
+        #pick attention module to use
+        if attention == 'default':
+            mha=MultiHeadAttention
+        elif attention == 'performer':
+            from .performer import MultiHeadAttentionPerformer
+            mha=MultiHeadAttentionPerformer
+        else:
+            mha=MultiHeadAttention
+
+
+        self.gpt = GPT(vocab_size, d_model, n_layers, n_heads, d_ff,
+                 embd_pdrop, attn_pdrop, resid_pdrop, pad_id, mha)
+
+
+        vocab_size, d_model = self.gpt.decoder.embedding.weight.size()
+
         self.linear = nn.Linear(d_model, vocab_size, bias=False)
-        self.linear.weight = gpt.decoder.embedding.weight
+        self.linear.weight = self.gpt.decoder.embedding.weight
 
     def forward(self, inputs):
         # |inputs| : (batch_size, seq_len)
@@ -221,13 +238,15 @@ class LMModel(pl.LightningModule):
         lm_logits = self.linear(outputs)
         # |lm_logits| : (batch_size, seq_len, vocab_size)
 
-        return lm_logits
+        return lm_logits, attention_weights
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=0.0001)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.2, patience=0, threshold=8, cooldown=2)
         
-        return  {'optimizer': optimizer, 'lr_scheduler': scheduler,  "monitor": 'perplexity'}
+        #optimizer = torch.optim.Adam(self.parameters(),betas=(0.9, 0.98), lr=0.001, eps=1e-09, weight_decay=0.1)
+        #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.2, patience=0, threshold=8, cooldown=2)
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.0001)
+        
+        return optimizer #{'optimizer': optimizer, 'lr_scheduler': scheduler,  "monitor": 'perplexity'}
 
     def training_step(self, batch, batch_idx):
         X, y = batch['inputs_ids'], batch['labels']
