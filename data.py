@@ -34,7 +34,7 @@ class WikiText2DataModule(pl.LightningDataModule):
                 yield dataset[i: i + batch_size]["text"]
 
         if not os.path.exists("data/tokenizer-wiki.json"):
-            trainer = BpeTrainer(special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"])
+            trainer = BpeTrainer(special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"], vocab_size = 12000)
             
             self.tokenizer.train_from_iterator(batch_iterator(), trainer=trainer, length=len(dataset))
             self.tokenizer.save("data/tokenizer-wiki.json")

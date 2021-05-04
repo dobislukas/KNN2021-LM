@@ -224,10 +224,12 @@ class LMModel(pl.LightningModule):
         return lm_logits
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=0.0001)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.2, patience=0, threshold=8, cooldown=2)
         
-        return  {'optimizer': optimizer, 'lr_scheduler': scheduler,  "monitor": 'perplexity'}
+        #optimizer = torch.optim.Adam(self.parameters(),betas=(0.9, 0.98), lr=0.001, eps=1e-09, weight_decay=0.1)
+        #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.2, patience=0, threshold=8, cooldown=2)
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.0001)
+        
+        return optimizer #{'optimizer': optimizer, 'lr_scheduler': scheduler,  "monitor": 'perplexity'}
 
     def training_step(self, batch, batch_idx):
         X, y = batch['inputs_ids'], batch['labels']
