@@ -2,25 +2,27 @@ from typing import Optional
 
 import pytorch_lightning as pl
 import torch
+import os
 from datasets import load_dataset
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import Whitespace
 from tokenizers.tokenizers import Tokenizer
 from tokenizers.trainers import BpeTrainer
 from torch.utils.data.dataloader import DataLoader
+from tokenizers import ByteLevelBPETokenizer
 
 
 class WikiText2DataModule(pl.LightningDataModule):
     def __init__(self, data_dir: str = 'data/wikitext-2', train_batch_size: int = 64, val_batch_size: int = 64,
-                 dataloader_num_workers: int = 4, seq_length: int = 64):
+                 dataloader_num_workers: int = 4, seq_length: int = 64, vocab_size=30000):
         super().__init__()
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
         self.dataloader_num_workers = dataloader_num_workers
         self.seq_length = seq_length
+        self.vocab_size = vocab_size
 
-        self.tokenizer = Tokenizer(BPE(unk_token="[UNK]"))
-        self.tokenizer.pre_tokenizer = Whitespace()
+        self.tokenizer = ByteLevelBPETokenizer(add_prefix_space=True)
 
     def prepare_data(self, *args, **kwargs):
         dataset = load_dataset(
@@ -32,9 +34,13 @@ class WikiText2DataModule(pl.LightningDataModule):
             for i in range(0, len(dataset), batch_size):
                 yield dataset[i: i + batch_size]["text"]
 
-        trainer = BpeTrainer(special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"])
-        self.tokenizer.train_from_iterator(batch_iterator(), trainer=trainer, length=len(dataset))
-        self.tokenizer.save("data/tokenizer-wiki.json")
+        if (not os.path.exists("data/wiki-vocab.json")) or (not os.path.exists("data/wiki-merges.txt")):
+            print('TRAIN TOKENIZER')
+            self.tokenizer.train_from_iterator(batch_iterator(), vocab_size=self.vocab_size)
+            self.tokenizer.save_model("data/", "wiki")
+        else:
+            self.tokenizer = ByteLevelBPETokenizer("data/wiki-vocab.json", "data/wiki-merges.txt",
+                                                   add_prefix_space=True)
 
         dataset = load_dataset(
             "wikitext", "wikitext-103-raw-v1"

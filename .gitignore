@@ -2,7 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+lightning_logs/
+data/tokenizer-wiki.json
+data/wiki-vocab.json
+data/wiki-merges.txt
 # C extensions
 *.so
 
