@@ -61,7 +61,7 @@ def main():
     #trainer = pl.Trainer(resume_from_checkpoint='./lightning_logs/version_12/checkpoints/epoch=7-step=217777.ckpt',gpus=1,
     #trainer = pl.Trainer(resume_from_checkpoint='./lightning_logs/version_13/checkpoints/epoch=9-step=251031.ckpt',gpus=1, max_epochs=25, val_check_interval=500)
 	
-    #trainer = pl.Trainer(resume_from_checkpoint="lightning_logs/version_44/checkpoints/epoch=8-step=247031.ckpt",gpus=1, max_epochs=100, val_check_interval=500)
+    #trainer = pl.Trainer(resume_from_checkpoint="lightning_logs/version_50/checkpoints/epoch=4-step=115015.ckpt",gpus=1, max_epochs=100, val_check_interval=500)
 	
     trainer = pl.Trainer(callbacks=[checkpoint_callback], max_epochs=24, val_check_interval=500)
     trainer.fit(model=model, datamodule=data_module)

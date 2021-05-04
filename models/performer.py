@@ -167,12 +167,18 @@ class MultiHeadAttentionPerformer(torch.nn.Module):
         self.WV = torch.nn.Linear(d_model, d_model)
         self.favor_attention = FavorSelfAttention(self.d_k, nb_random_features)
         self.linear = torch.nn.Linear(n_heads * self.d_v, d_model)
-
+        self.redraw_batchcounter = 1
+        
     def forward(self, Q, K, V, att_mask):
         # |Q| : (batch_size, q_len(=seq_len), d_model)
         # |K| : (batch_size, k_len(=seq_len), d_model)
         # |V| : (batch_size, v_len(=seq_len), d_model)
         batch_size = Q.size(0)
+        
+        self.redraw_batchcounter += 1
+        if (self.redraw_batchcounter % 4000) == 0:
+            self.redraw_batchcounter = 0
+            self.favor_attention.redraw()
 
         q_heads = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k)
         k_heads = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k)
