@@ -103,7 +103,7 @@ class WikiText2DataModule(pl.LightningDataModule):
             self.train_dataset,
             batch_size=self.train_batch_size,
             collate_fn=self.collate_fn,
-            # num_workers=self.dataloader_num_workers
+            num_workers=self.dataloader_num_workers
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -111,7 +111,7 @@ class WikiText2DataModule(pl.LightningDataModule):
             self.eval_dataset,
             batch_size=self.val_batch_size,
             collate_fn=self.collate_fn,
-            # num_workers=self.dataloader_num_workers
+            num_workers=self.dataloader_num_workers
         )
 
     def test_dataloader(self) -> DataLoader:
@@ -119,5 +119,5 @@ class WikiText2DataModule(pl.LightningDataModule):
             self.test_dataset,
             batch_size=self.val_batch_size,
             collate_fn=self.collate_fn,
-            # num_workers=self.dataloader_num_workers
+            num_workers=self.dataloader_num_workers
         )
