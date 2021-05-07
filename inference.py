@@ -64,7 +64,7 @@ def inference(
     #print('\n========================\n      ORIGINAL BPE        \n========================')
     #print(output_tokens2, decoded_output2, sep='\n')
     #print('\n========================\n      MODIFIED BPE        \n========================')
-    return decoded_output, output_tokens
+    return decoded_output, output_tokens, attn
     
     
 if __name__ == '__main__':
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     input=sys.stdin.read()
     
     print("\n========================\n         OUTPUT         \n========================")
-    output, tokens = inference(args.checkpoint, args.hyperparameters, args.tokenizer, args.merges, input)
+    output, tokens, _ = inference(args.checkpoint, args.hyperparameters, args.tokenizer, args.merges, input)
     
     print(tokens, output, sep='\n')
     
