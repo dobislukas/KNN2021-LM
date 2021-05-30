@@ -1,0 +1,79 @@
+\documentclass[a4paper, 11pt]{article}
+
+%\usepackage[backend=biber,style=alphabetic,sorting=ynt]{biblatex}
+%\addbibresource{references.bib}
+\usepackage{arxiv}
+\usepackage{hyperref}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+%\usepackage[left=2cm, top=3cm, text={17cm, 24cm}]{geometry}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{scalerel}
+\usepackage{booktabs}
+\usepackage{multirow}
+
+%\usepackage{algorithm}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{algpseudocode}
+
+\usepackage{varwidth}
+\usepackage{listings}
+
+\newtheorem{veta}{Veta}
+\newtheorem{dokaz}{Dôkaz}
+\newtheorem{lema}{Lemma}
+\usepackage{mathtools}
+
+\usepackage{amsfonts}
+\newcommand{\intlr}[1]{\scaleleftright[1ex]{<}{#1}{>}}
+\newcommand{\intopen}[1]{\scaleleftright[1ex]{(}{#1}{)}}
+\newcommand\myeq{\stackrel{\mathclap{\normalfont\mbox{def}}}{=}}
+\setlength\parindent{0pt}
+
+\makeatletter
+\let\OldStatex\Statex
+\renewcommand{\Statex}[1][3]{%
+  \setlength\@tempdima{\algorithmicindent}%
+  \OldStatex\hskip\dimexpr#1\@tempdima\relax}
+\makeatother
+\let\endtitlepage\relax
+\setlength{\parindent}{15pt}
+
+
+\title{Performer based Language Model}
+\author{
+    Dobiš Lukáš\\
+	Faculty of Information Technology\\
+	Brno University of Technology\\
+	Brno, Czech Republic \\
+	\texttt{xdobis01@stud.fit.vutbr.cz} \\
+	\And
+    Karabelly Jozef\\
+	Faculty of Information Technology\\
+	Brno University of Technology\\
+	Brno, Czech Republic \\
+	\texttt{xkarab03@stud.fit.vutbr.cz} \\
+	\And
+    Marek Vaško\\
+	Faculty of Information Technology\\
+	Brno University of Technology\\
+	Brno, Czech Republic \\
+	\texttt{xvasko16@stud.fit.vutbr.cz} \\
+}
+\date{6.5.2021}
+
+\begin{document}
+    \maketitle
+    %\begin{abstract}
+    %	Abcdefgh
+    %\end{abstract}
+    %Main Text
+	\input{text/zaklad}
+	%Bibliography
+	\bibliographystyle{enplain}
+	%\bibliographystyle{unsrtnat}
+    \bibliography{references}
+\end{document}
