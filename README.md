@@ -1,3 +1,5 @@
+My project for KNN course on VUT FIT, which dealt with convolutional neural networks and other advanced neural architectures. Project was done in collaboration with users marekkles and karabellyj
+
 # KNN2021-LM
 Repositoy contains source code and documentation of project assignment for course KNN. 
 It is recomended to firstly insall all needed packages, these include `torch`,
